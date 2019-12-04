@@ -27,7 +27,10 @@ import language.experimental.macros
 
 object `package` {
   implicit def monadic[F[_]]: Monadic[F] =
-    macro Mercator.instantiate[F[Nothing]]
+    macro Mercator.instantiateMonadic[F[Nothing]]
+  
+  implicit def applicative[F[_]]: Applicative[F] =
+    macro Mercator.instantiateMonadic[F[Nothing]]
   
   final implicit class Ops[M[_], A](val value: M[A]) extends AnyVal {
     @inline def flatMap[B](fn: A => M[B])(implicit monadic: Monadic[M]): M[B] =
@@ -36,7 +39,7 @@ object `package` {
     @inline def map[B](fn: A => B)(implicit monadic: Monadic[M]): M[B] =
       monadic.map[A, B](value)(fn)
     
-    @inline def filter(fn: A => Boolean)(implicit monadic: MonadicFilter[M]): M[A] =
+    @inline def filter(fn: A => Boolean)(implicit monadic: Filter[M]): M[A] =
       monadic.filter[A](value)(fn)
   }
 
@@ -56,13 +59,15 @@ object `package` {
 }
 
 object Mercator {
-  def instantiate[F: c.WeakTypeTag](c: whitebox.Context): c.Tree = {
+
+  def instantiateMonadic[F: c.WeakTypeTag](c: whitebox.Context): c.Tree = {
     import c.universe._
+
     val typeConstructor = weakTypeOf[F].typeConstructor
     val mockType = appliedType(typeConstructor, typeOf[Mercator.type])
     val companion = typeConstructor.dealias.typeSymbol.companion
     val returnType = scala.util.Try(c.typecheck(q"$companion.apply(_root_.mercator.Mercator)").tpe)
-    val pointApplication = if(returnType.map(_ <:< mockType).getOrElse(false)) q"${companion.asModule}(value)" else {
+    val pointAp = if(returnType.map(_ <:< mockType).getOrElse(false)) q"${companion.asModule}(value)" else {
       val subtypes = typeConstructor.typeSymbol.asClass.knownDirectSubclasses.filter { sub =>
         c.typecheck(q"${sub.companion}.apply(_root_.mercator.Mercator)").tpe <:< mockType
       }.map { sub => q"${sub.companion}.apply(value)" }
@@ -71,30 +76,60 @@ object Mercator {
     }
 
     val filterMethods: List[Tree] = if(mockType.typeSymbol.info.member(TermName("filter")) == NoSymbol) Nil
-      else List(q"def filter[A](value: Monad[A])(fn: A => Boolean) = value.filter(fn)")
+      else List(q"def filter[A](value: Ap[A])(fn: A => Boolean) = value.filter(fn)")
 
     val instantiation =
       if(filterMethods.isEmpty) tq"_root_.mercator.Monadic[$typeConstructor]"
-      else tq"_root_.mercator.MonadicFilter[$typeConstructor]"
+      else tq"_root_.mercator.Filter[$typeConstructor]"
 
     q"""
       new $instantiation {
-        def point[A](value: A): Monad[A] = $pointApplication
-        def flatMap[A, B](from: Monad[A])(fn: A => Monad[B]): Monad[B] = from.flatMap(fn)
-        def map[A, B](from: Monad[A])(fn: A => B): Monad[B] = from.map(fn)
+        def point[A](value: A): Ap[A] = ${pointAp}
+        def map[A, B](from: Ap[A])(fn: A => B): Ap[B] = from.map(fn)
+        ..$filterMethods
+      }
+    """
+  }
+  
+  def instantiateApplicative[F: c.WeakTypeTag](c: whitebox.Context): c.Tree = {
+    import c.universe._
+
+    val typeConstructor = weakTypeOf[F].typeConstructor
+    val mockType = appliedType(typeConstructor, typeOf[Mercator.type])
+    val companion = typeConstructor.dealias.typeSymbol.companion
+    val returnType = scala.util.Try(c.typecheck(q"$companion.apply(_root_.mercator.Mercator)").tpe)
+    
+    val pointAp = if(returnType.map(_ <:< mockType).getOrElse(false)) q"${companion.asModule}(value)" else {
+      val subtypes = typeConstructor.typeSymbol.asClass.knownDirectSubclasses.filter { sub =>
+        c.typecheck(q"${sub.companion}.apply(_root_.mercator.Mercator)").tpe <:< mockType
+      }.map { sub => q"${sub.companion}.apply(value)" }
+      if(subtypes.size == 1) subtypes.head
+      else c.abort(c.enclosingPosition, s"mercator: unable to derive Monadic instance for type constructor $typeConstructor")
+    }
+
+    val filterMethods: List[Tree] = if(mockType.typeSymbol.info.member(TermName("filter")) == NoSymbol) Nil
+      else List(q"def filter[A](value: Ap[A])(fn: A => Boolean) = value.filter(fn)")
+
+    val instantiation =
+      if(filterMethods.isEmpty) tq"_root_.mercator.Monadic[$typeConstructor]"
+      else tq"_root_.mercator.Filter[$typeConstructor]"
+
+    q"""
+      new $instantiation {
+        def point[A](value: A): Ap[A] = ${pointAp}
+        def flatMap[A, B](from: Ap[A])(fn: A => Ap[B]): Ap[B] = from.flatMap(fn)
+        def map[A, B](from: Ap[A])(fn: A => B): Ap[B] = from.map(fn)
         ..$filterMethods
       }
     """
   }
 }
 
-trait Monadic[F[_]] {
-  type Monad[T] = F[T]
+trait Applicative[F[_]] {
+  type Ap[T] = F[T]
   def point[A](value: A): F[A]
-  def flatMap[A, B](from: F[A])(fn: A => F[B]): F[B]
   def map[A, B](from: F[A])(fn: A => B): F[B]
 }
 
-trait MonadicFilter[F[_]] extends Monadic[F] {
-  def filter[A](value: F[A])(fn: A => Boolean): F[A]
-}
+trait Monadic[F[_]] extends Applicative[F] { def flatMap[A, B](from: F[A])(fn: A => F[B]): F[B] }
+trait Filter[F[_]] extends Applicative[F] { def filter[A](value: F[A])(fn: A => Boolean): F[A] }
