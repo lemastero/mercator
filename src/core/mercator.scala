@@ -36,8 +36,8 @@ object `package` {
     @inline def flatMap[B](fn: A => M[B])(implicit monadic: Monadic[M]): M[B] =
       monadic.flatMap[A, B](value)(fn)
 
-    @inline def map[B](fn: A => B)(implicit monadic: Monadic[M]): M[B] =
-      monadic.map[A, B](value)(fn)
+    @inline def map[B](fn: A => B)(implicit applicative: Applicative[M]): M[B] =
+      applicative.map[A, B](value)(fn)
     
     @inline def filter(fn: A => Boolean)(implicit monadic: Filter[M]): M[A] =
       monadic.filter[A](value)(fn)
