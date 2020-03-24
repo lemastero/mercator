@@ -48,8 +48,3 @@ whose companion object has an apply method taking a single value and returning
 the correct type. In the case of `Either` or Scalaz's `\/`, this will do the
 right thing.
 
-## Edit Mercator
-
-You can <a href="fury://furore.dev/propensive/mercator">open</a> the latest version of
-Mercator.
-
