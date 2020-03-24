@@ -66,7 +66,6 @@ object `package` {
 }
 
 object Mercator {
-
   object instantiate {
     def functor[F: c.WeakTypeTag](c: whitebox.Context): c.Tree = common(c).functor
     def monadic[F: c.WeakTypeTag](c: whitebox.Context): c.Tree = common(c).monadic
