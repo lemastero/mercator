@@ -50,6 +50,6 @@ right thing.
 
 ## Edit Mercator
 
-You can [open](fury://furore.dev/propensive/mercator) the latest version of
+You can <a href="fury://furore.dev/propensive/mercator">open</a> the latest version of
 Mercator.
 
