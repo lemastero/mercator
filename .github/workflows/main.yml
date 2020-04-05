@@ -14,5 +14,5 @@ jobs:
     - run: git fetch --prune --unshallow
     - name: Run Fury
       run: |
-        ./fury build compile --output linear
+        ./fury build run --output linear
       timeout-minutes: 5
