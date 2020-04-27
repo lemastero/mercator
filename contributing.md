@@ -1,3 +1,5 @@
+<img src="/doc/images/200x200.png" align="right">
+
 # Contributing to Mercator
 
 Firstly, thank you for taking an interesting in contributing! Mercator is an open-source project, and welcomes
