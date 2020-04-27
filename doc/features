@@ -1,0 +1,4 @@
+- constructs `Monadic` instances for types with the appropriate `flatMap`, `map` and &ldquo;point&rdquo; methods
+- allows abstraction over for-comprehensions
+- can generate `Functor` instances for types without `flatMap`
+- support for filterable monadic types
