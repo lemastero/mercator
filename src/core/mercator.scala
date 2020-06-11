@@ -63,6 +63,25 @@ object `package` {
         acc.flatMap { xs => fn(next).map(_ :: xs) }
       }.map(_.reverse.to[Coll])
   }
+
+
+
+  final implicit class OptionOps[T, M[_]](val opt: Option[M[T]]) extends AnyVal {
+
+    @inline
+    def sequence(implicit monadic: Monadic[M]): M[Option[T]] = opt match {
+      case Some(v) => v.map(Some(_))
+      case None    => monadic.point(None)
+    }
+  }
+
+  final implicit class TraversableOptionOps[A](val opt: Option[A]) extends AnyVal {
+    @inline
+    def traverse[B, M[_]](fn: A => M[B])(implicit monadic: Monadic[M]): M[Option[B]] = opt match {
+      case Some(v) => fn(v).map(Some(_))
+      case None    => monadic.point(None)
+    }
+  }
 }
 
 object Mercator {
